@@ -30,6 +30,11 @@ export const postsRepository = {
 
   update(id: string, dto: PostInputDto): void {
     const post = db.posts.find((d) => d.id === id);
+    const blog = db.blogs.find((b) => b.id === dto.blogId);
+
+    if (!blog) {
+      throw new Error('Blog not exist');
+    }
 
     if (!post) {
       throw new Error('Post not exist');
@@ -39,6 +44,7 @@ export const postsRepository = {
     post.shortDescription = dto.shortDescription;
     post.content = dto.content;
     post.blogId = dto.blogId;
+    post.blogName = blog.name;
 
     return;
   },
