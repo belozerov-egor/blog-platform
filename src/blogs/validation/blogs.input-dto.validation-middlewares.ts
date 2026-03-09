@@ -20,15 +20,9 @@ const websiteUrl = body('websiteUrl')
   .trim()
   .isLength({ min: 1, max: 100 })
   .withMessage('Length of website is not correct')
-  .isURL({
-    protocols: ['https'],
-    require_protocol: true,
-    require_tld: true,
-    allow_underscores: true,
-    allow_trailing_dot: false,
-    allow_query_components: false,
-    allow_fragments: false,
-  })
+  .matches(
+    /^https:\/\/([a-zA-Z0-9_-]+\.)+[a-zA-Z0-9_-]+(\/[a-zA-Z0-9_-]+)*\/?$/,
+  )
   .withMessage('website url has invalid format');
 
 export const blogsInputDtoValidation = [
