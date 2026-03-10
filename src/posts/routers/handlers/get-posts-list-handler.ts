@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { db } from '../../../db/in-memory.db';
+import { postsRepository } from '../../repositories/posts.repository';
 
 export const getPostsListHandler = (req: Request, res: Response) => {
-  res.send(db.posts);
+  res.send(postsRepository.findAll());
 };

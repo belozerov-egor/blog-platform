@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
-import { db } from '../../../db/in-memory.db';
 import { HttpStatus } from '../../../core/types/http-statuses';
+import { postsRepository } from '../../repositories/posts.repository';
 
 export const getPostsHandler = (
   req: Request<{ id: string }>,
   res: Response,
 ) => {
   const { id } = req.params;
-  const post = db.posts.find((post) => post.id === id);
+  const post = postsRepository.findById(id);
   if (!post) {
     res.sendStatus(HttpStatus.NotFound);
   }

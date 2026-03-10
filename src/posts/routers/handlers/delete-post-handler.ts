@@ -1,16 +1,16 @@
 import { Request, Response } from 'express';
-import { db } from '../../../db/in-memory.db';
 import { HttpStatus } from '../../../core/types/http-statuses';
+import { postsRepository } from '../../repositories/posts.repository';
 
 export const deletePostHandler = (
   req: Request<{ id: string }>,
   res: Response,
 ) => {
   const { id } = req.params;
-  const postIndex = db.posts.findIndex((post) => post.id === id);
-  if (postIndex === -1) {
+  const post = postsRepository.findById(id);
+  if (!post) {
     res.sendStatus(HttpStatus.NotFound);
   }
-  db.posts.splice(postIndex, 1);
+  postsRepository.delete(id);
   res.sendStatus(HttpStatus.NoContent);
 };
