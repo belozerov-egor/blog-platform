@@ -2,10 +2,14 @@ import request from 'supertest';
 import express from 'express';
 import { setupApp } from '../../../src/setup-app';
 import { HttpStatus } from '../../../src/core/types/http-statuses';
-import { BlogInputDto } from '../../../src/blogs/dto/blog.input-dto';
-import { BLOGS_PATH, TESTING_PATH } from '../../../src/core/paths/paths';
+import { PostInputDto } from '../../../src/posts/dto/post.input-dto';
+import {
+  POSTS_PATH,
+  BLOGS_PATH,
+  TESTING_PATH,
+} from '../../../src/core/paths/paths';
 
-describe('Blogs API body & id validation (e2e)', () => {
+describe('Posts API body & id validation (e2e)', () => {
   const app = express();
   setupApp(app);
 
@@ -23,26 +27,42 @@ describe('Blogs API body & id validation (e2e)', () => {
     return { Authorization: `Basic ${token}` };
   };
 
-  const correctBlogData: BlogInputDto = {
-    name: 'My blog',
-    description: 'Some description',
-    websiteUrl: 'https://example.com',
-  };
+  let blogId: string;
+
+  const correctPostData = (): PostInputDto => ({
+    title: 'My post',
+    shortDescription: 'Some description',
+    content: 'Some content',
+    blogId,
+  });
 
   beforeAll(async () => {
     await request(app)
       .delete(`${TESTING_PATH}/all-data`)
       .expect(HttpStatus.NoContent);
-  });
 
-  it(`❌ should not create blog when incorrect body passed; POST ${BLOGS_PATH}`, async () => {
-    const res = await request(app)
+    const blogResponse = await request(app)
       .post(BLOGS_PATH)
       .set(getBasicAuthHeader())
       .send({
-        name: '   ',
-        description: '   ',
-        websiteUrl: 'http://example.com',
+        name: 'Test blog',
+        description: 'Test blog description',
+        websiteUrl: 'https://example.com',
+      })
+      .expect(HttpStatus.Created);
+
+    blogId = blogResponse.body.id;
+  });
+
+  it(`❌ should not create post when incorrect body passed; POST ${POSTS_PATH}`, async () => {
+    const res = await request(app)
+      .post(POSTS_PATH)
+      .set(getBasicAuthHeader())
+      .send({
+        title: '   ',
+        shortDescription: '   ',
+        content: '   ',
+        blogId: '   ',
       })
       .expect(HttpStatus.BadRequest);
 
@@ -50,72 +70,70 @@ describe('Blogs API body & id validation (e2e)', () => {
       errorsMessages: expect.any(Array),
     });
 
-    // onlyFirstError: true => по одному сообщению на поле
-    expect(res.body.errorsMessages).toHaveLength(3);
+    expect(res.body.errorsMessages).toHaveLength(4);
 
     const fields = res.body.errorsMessages.map((e: any) => e.field).sort();
-    expect(fields).toEqual(['description', 'name', 'websiteUrl']);
+    expect(fields).toEqual(['blogId', 'content', 'shortDescription', 'title']);
 
-    // check что никто не создался
-    const list = await request(app).get(BLOGS_PATH).expect(HttpStatus.Ok);
+    const list = await request(app).get(POSTS_PATH).expect(HttpStatus.Ok);
     expect(list.body).toHaveLength(0);
   });
 
-  it(`❌ should not create blog when websiteUrl has query/fragment; POST ${BLOGS_PATH}`, async () => {
+  it(`❌ should not create post when blogId does not exist; POST ${POSTS_PATH}`, async () => {
     const res = await request(app)
-      .post(BLOGS_PATH)
+      .post(POSTS_PATH)
       .set(getBasicAuthHeader())
       .send({
-        ...correctBlogData,
-        websiteUrl: 'https://example.com/path?a=1#hash',
+        ...correctPostData(),
+        blogId: 'nonexistent-id',
       })
       .expect(HttpStatus.BadRequest);
 
     expect(res.body.errorsMessages).toHaveLength(1);
     expect(res.body.errorsMessages[0]).toEqual({
-      field: 'websiteUrl',
+      field: 'blogId',
       message: expect.any(String),
     });
 
-    const list = await request(app).get(BLOGS_PATH).expect(HttpStatus.Ok);
+    const list = await request(app).get(POSTS_PATH).expect(HttpStatus.Ok);
     expect(list.body).toHaveLength(0);
   });
 
-  it(`❌ should not update blog when incorrect body passed; PUT ${BLOGS_PATH}/:id`, async () => {
+  it(`❌ should not update post when incorrect body passed; PUT ${POSTS_PATH}/:id`, async () => {
     const create = await request(app)
-      .post(BLOGS_PATH)
+      .post(POSTS_PATH)
       .set(getBasicAuthHeader())
-      .send({ ...correctBlogData, name: 'Before update' })
+      .send({ ...correctPostData(), title: 'Before update' })
       .expect(HttpStatus.Created);
 
-    const blogId: string = create.body.id;
+    const postId: string = create.body.id;
 
     await request(app)
-      .put(`${BLOGS_PATH}/${blogId}`)
+      .put(`${POSTS_PATH}/${postId}`)
       .set(getBasicAuthHeader())
       .send({
-        name: '   ',
-        description: '   ',
-        websiteUrl: 'http://example.com',
+        title: '   ',
+        shortDescription: '   ',
+        content: '   ',
+        blogId: '   ',
       })
       .expect(HttpStatus.BadRequest);
 
-    // убедимся, что данные не поменялись
     const getAfter = await request(app)
-      .get(`${BLOGS_PATH}/${blogId}`)
+      .get(`${POSTS_PATH}/${postId}`)
       .expect(HttpStatus.Ok);
 
     expect(getAfter.body).toEqual({
       ...create.body,
-      id: blogId,
+      id: postId,
     });
   });
 
-  it(`❌ should return 400 when id is empty/whitespace; GET ${BLOGS_PATH}/:id`, async () => {
-    const whitespaceId = encodeURIComponent('   '); // "%20%20%20"
+  it(`❌ should return 400 when id is empty/whitespace; GET ${POSTS_PATH}/:id`, async () => {
+    const whitespaceId = encodeURIComponent('   ');
 
     const res = await request(app)
-      .get(`${BLOGS_PATH}/${whitespaceId}`)
+      .get(`${POSTS_PATH}/${whitespaceId}`)
       .expect(HttpStatus.BadRequest);
 
     expect(res.body).toEqual({
@@ -128,13 +146,13 @@ describe('Blogs API body & id validation (e2e)', () => {
     });
   });
 
-  it(`❌ should return 400 when id is empty/whitespace; PUT ${BLOGS_PATH}/:id`, async () => {
+  it(`❌ should return 400 when id is empty/whitespace; PUT ${POSTS_PATH}/:id`, async () => {
     const whitespaceId = encodeURIComponent('   ');
 
     const res = await request(app)
-      .put(`${BLOGS_PATH}/${whitespaceId}`)
+      .put(`${POSTS_PATH}/${whitespaceId}`)
       .set(getBasicAuthHeader())
-      .send(correctBlogData)
+      .send(correctPostData())
       .expect(HttpStatus.BadRequest);
 
     expect(res.body.errorsMessages[0]).toEqual({
@@ -143,11 +161,11 @@ describe('Blogs API body & id validation (e2e)', () => {
     });
   });
 
-  it(`❌ should return 400 when id is empty/whitespace; DELETE ${BLOGS_PATH}/:id`, async () => {
+  it(`❌ should return 400 when id is empty/whitespace; DELETE ${POSTS_PATH}/:id`, async () => {
     const whitespaceId = encodeURIComponent('   ');
 
     const res = await request(app)
-      .delete(`${BLOGS_PATH}/${whitespaceId}`)
+      .delete(`${POSTS_PATH}/${whitespaceId}`)
       .set(getBasicAuthHeader())
       .expect(HttpStatus.BadRequest);
 
