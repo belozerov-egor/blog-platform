@@ -29,8 +29,8 @@ const blogId = body('blogId')
   .isLength({ min: 1 })
   .withMessage('Length of blogId is not correct')
   .bail()
-  .custom((value) => {
-    const blog = blogsRepository.findById(value);
+  .custom(async (value) => {
+    const blog = await blogsRepository.findById(value);
     if (!blog) {
       throw new Error('Blog with specified blogId does not exist');
     }

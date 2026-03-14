@@ -1,8 +1,11 @@
-export type BlogsList = Blog[];
-
 export type Blog = {
-  id: string;
   name: string;
   description: string;
   websiteUrl: string;
+  isMembership: boolean;
+  createdAt: Date;
+};
+
+export type BlogViewModel = Blog & {
+  id: string;
 };

@@ -1,44 +1,48 @@
-import { db } from '../../db/in-memory.db';
-import { Blog, BlogsList } from '../types/blogs';
+import { Blog } from '../types/blogs';
 import { BlogInputDto } from '../dto/blog.input-dto';
+import { blogsCollection } from '../../db/mongo.db';
+import { ObjectId, WithId } from 'mongodb';
 
 export const blogsRepository = {
-  findAll(): BlogsList {
-    return db.blogs;
+  async findAll(): Promise<WithId<Blog>[]> {
+    return blogsCollection.find().toArray();
   },
 
-  findById(id: string): Blog | null {
-    return db.blogs.find((d) => d.id === id) ?? null; // Если результат поиска равно null или undefined, то вернем null.
+  async findById(id: string): Promise<WithId<Blog> | null> {
+    return blogsCollection.findOne({ _id: new ObjectId(id) });
   },
 
-  create(newBlog: Blog): Blog {
-    db.blogs.push(newBlog);
-
-    return newBlog;
+  async create(newBlog: Blog): Promise<WithId<Blog> | null> {
+    const insertResult = await blogsCollection.insertOne(newBlog);
+    return await blogsCollection.findOne({
+      _id: insertResult.insertedId,
+    });
   },
 
-  delete(id: string): void {
-    const index = db.blogs.findIndex((v) => v.id === id);
-
-    if (index === -1) {
-      throw new Error('Driver not exist');
+  async delete(id: string): Promise<void> {
+    const deleteResult = await blogsCollection.deleteOne({
+      _id: new ObjectId(id),
+    });
+    if (deleteResult.deletedCount < 1) {
+      throw new Error('Blog not found');
     }
-
-    db.blogs.splice(index, 1);
     return;
   },
 
-  update(id: string, dto: BlogInputDto): void {
-    const blog = db.blogs.find((d) => d.id === id);
-
-    if (!blog) {
-      throw new Error('Driver not exist');
+  async update(id: string, dto: BlogInputDto): Promise<void> {
+    const updateResult = await blogsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          name: dto.name,
+          description: dto.description,
+          websiteUrl: dto.websiteUrl,
+        },
+      },
+    );
+    if (updateResult.modifiedCount < 1) {
+      throw new Error('Blog not found');
     }
-
-    blog.name = dto.name;
-    blog.description = dto.description;
-    blog.websiteUrl = dto.websiteUrl;
-
     return;
   },
 };

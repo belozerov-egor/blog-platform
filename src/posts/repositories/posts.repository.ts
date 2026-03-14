@@ -1,36 +1,38 @@
-import { db } from '../../db/in-memory.db';
-import { Post, PostsList } from '../types/posts';
+import { Post } from '../types/posts';
 import { PostInputDto } from '../dto/post.input-dto';
+import { blogsRepository } from '../../blogs/repositories/blogs.repository';
+import { ObjectId, WithId } from 'mongodb';
+import { postsCollection } from '../../db/mongo.db';
 
 export const postsRepository = {
-  findAll(): PostsList {
-    return db.posts;
+  async findAll(): Promise<WithId<Post>[]> {
+    return postsCollection.find().toArray();
   },
 
-  findById(id: string): Post | null {
-    return db.posts.find((d) => d.id === id) ?? null; // Если результат поиска равно null или undefined, то вернем null.
+  async findById(id: string): Promise<WithId<Post> | null> {
+    return postsCollection.findOne({ _id: new ObjectId(id) });
   },
 
-  create(newPost: Post): Post {
-    db.posts.push(newPost);
-
-    return newPost;
+  async create(newPost: Post): Promise<WithId<Post> | null> {
+    const insertPost = await postsCollection.insertOne(newPost);
+    return await postsCollection.findOne({
+      _id: insertPost.insertedId,
+    });
   },
 
-  delete(id: string): void {
-    const index = db.posts.findIndex((v) => v.id === id);
-
-    if (index === -1) {
-      throw new Error('Post not exist');
+  async delete(id: string): Promise<void> {
+    const deletedPost = await postsCollection.deleteOne({
+      _id: new ObjectId(id),
+    });
+    if (deletedPost.deletedCount < 1) {
+      throw new Error('Post not deleted');
     }
-
-    db.posts.splice(index, 1);
     return;
   },
 
-  update(id: string, dto: PostInputDto): void {
-    const post = db.posts.find((d) => d.id === id);
-    const blog = db.blogs.find((b) => b.id === dto.blogId);
+  async update(id: string, dto: PostInputDto): Promise<void> {
+    const post = await postsCollection.findOne({ _id: new ObjectId(id) });
+    const blog = await blogsRepository.findById(dto.blogId);
 
     if (!blog) {
       throw new Error('Blog not exist');
@@ -39,12 +41,21 @@ export const postsRepository = {
     if (!post) {
       throw new Error('Post not exist');
     }
-
-    post.title = dto.title;
-    post.shortDescription = dto.shortDescription;
-    post.content = dto.content;
-    post.blogId = dto.blogId;
-    post.blogName = blog.name;
+    await postsCollection.updateOne(
+      {
+        _id: post._id,
+      },
+      {
+        $set: {
+          title: dto.title,
+          shortDescription: dto.shortDescription,
+          content: dto.content,
+          blogId: dto.blogId,
+          blogName: blog.name,
+          createdAt: post.createdAt,
+        },
+      },
+    );
 
     return;
   },

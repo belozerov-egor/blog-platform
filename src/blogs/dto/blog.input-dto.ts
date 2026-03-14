@@ -1,3 +1,3 @@
 import { Blog } from '../types/blogs';
 
-export type BlogInputDto = Omit<Blog, 'id'>;
+export type BlogInputDto = Omit<Blog, 'id' | 'createdAt' | 'isMembership'>;
