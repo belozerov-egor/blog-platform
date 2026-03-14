@@ -3,10 +3,24 @@ import express from 'express';
 import { setupApp } from '../../../src/setup-app';
 import { HttpStatus } from '../../../src/core/types/http-statuses';
 import { BlogInputDto } from '../../../src/blogs/dto/blog.input-dto';
+import { client, runDB } from '../../../src/db/mongo.db';
+import { SETTINGS } from '../../../src/core/settings/settings';
+import { TESTING_PATH } from '../../../src/core/paths/paths';
 
 describe('Blogs API (e2e)', () => {
   const app = express();
   setupApp(app);
+
+  beforeAll(async () => {
+    await runDB(SETTINGS.MONGO_URL);
+    await request(app)
+      .delete(`${TESTING_PATH}/all-data`)
+      .expect(HttpStatus.NoContent);
+  });
+
+  afterAll(async () => {
+    await client.close();
+  });
 
   const correctAuthHeader = {
     Authorization: `Basic ${Buffer.from(
@@ -40,6 +54,8 @@ describe('Blogs API (e2e)', () => {
     expect(createResponse.body).toEqual({
       ...newBlog,
       id: expect.any(String),
+      createdAt: expect.any(String),
+      isMembership: false,
     });
   });
 
@@ -107,6 +123,8 @@ describe('Blogs API (e2e)', () => {
     expect(getUpdatedResponse.body).toEqual({
       ...blogUpdateData,
       id: createResponse.body.id,
+      createdAt: expect.any(String),
+      isMembership: false,
     });
   });
 

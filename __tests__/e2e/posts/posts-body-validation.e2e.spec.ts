@@ -8,11 +8,22 @@ import {
   BLOGS_PATH,
   TESTING_PATH,
 } from '../../../src/core/paths/paths';
+import { client, runDB } from '../../../src/db/mongo.db';
+import { SETTINGS } from '../../../src/core/settings/settings';
 
 describe('Posts API body & id validation (e2e)', () => {
   const app = express();
   setupApp(app);
+  beforeAll(async () => {
+    await runDB(SETTINGS.MONGO_URL);
+    await request(app)
+      .delete(`${TESTING_PATH}/all-data`)
+      .expect(HttpStatus.NoContent);
+  });
 
+  afterAll(async () => {
+    await client.close();
+  });
   const getBasicAuthHeader = () => {
     const username = process.env.ADMIN_USERNAME;
     const password = process.env.ADMIN_PASSWORD;

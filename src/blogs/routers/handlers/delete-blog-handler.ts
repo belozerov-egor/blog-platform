@@ -2,16 +2,20 @@ import { Request, Response } from 'express';
 import { HttpStatus } from '../../../core/types/http-statuses';
 import { blogsRepository } from '../../repositories/blogs.repository';
 
-export const deleteBlogHandler = (
+export const deleteBlogHandler = async (
   req: Request<{ id: string }>,
   res: Response,
 ) => {
-  const { id } = req.params;
-  const blog = blogsRepository.findById(id);
-  if (!blog) {
-    res.sendStatus(HttpStatus.NotFound);
-    return;
+  try {
+    const { id } = req.params;
+    const blog = await blogsRepository.findById(id);
+    if (!blog) {
+      res.sendStatus(HttpStatus.NotFound);
+      return;
+    }
+    await blogsRepository.delete(id);
+    res.sendStatus(HttpStatus.NoContent);
+  } catch {
+    res.sendStatus(HttpStatus.InternalServerError);
   }
-  blogsRepository.delete(id);
-  res.sendStatus(HttpStatus.NoContent);
 };

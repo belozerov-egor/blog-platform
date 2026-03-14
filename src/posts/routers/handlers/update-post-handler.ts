@@ -4,21 +4,25 @@ import { postsRepository } from '../../repositories/posts.repository';
 import { PostInputDto } from '../../dto/post.input-dto';
 import { blogsRepository } from '../../../blogs/repositories/blogs.repository';
 
-export const updateBlogHandler = (
+export const updateBlogHandler = async (
   req: Request<{ id: string }, {}, PostInputDto>,
   res: Response,
 ) => {
-  const { id } = req.params;
-  const post = postsRepository.findById(id);
-  const blog = blogsRepository.findById(req.body.blogId);
-  if (!blog) {
-    return res
-      .status(HttpStatus.BadRequest)
-      .send({ field: 'blogId', message: 'Blog not found' });
+  try {
+    const { id } = req.params;
+    const post = await postsRepository.findById(id);
+    const blog = await blogsRepository.findById(req.body.blogId);
+    if (!blog) {
+      return res
+        .status(HttpStatus.BadRequest)
+        .send({ field: 'blogId', message: 'Blog not found' });
+    }
+    if (!post) {
+      return res.sendStatus(HttpStatus.NotFound);
+    }
+    await postsRepository.update(id, req.body);
+    res.sendStatus(HttpStatus.NoContent);
+  } catch {
+    res.sendStatus(HttpStatus.InternalServerError);
   }
-  if (!post) {
-    return res.sendStatus(HttpStatus.NotFound);
-  }
-  postsRepository.update(id, req.body);
-  res.sendStatus(HttpStatus.NoContent);
 };
