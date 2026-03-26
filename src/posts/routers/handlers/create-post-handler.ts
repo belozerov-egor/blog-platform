@@ -1,33 +1,20 @@
 import { Request, Response } from 'express';
 import { HttpStatus } from '../../../core/types/http-statuses';
-import { PostInputDto } from '../../dto/post.input-dto';
-import { postsRepository } from '../../repositories/posts.repository';
-import { blogsRepository } from '../../../blogs/repositories/blogs.repository';
 import { mapToPostViewModel } from '../mappers/map-to-post-view-model.util';
+import { PostAttributes } from '../../application/dtos/post-attributes';
+import { postsService } from '../../application/posts.service';
+import { errorsHandler } from '../../../core/errors/errors.handler';
 
 export const createPostHandler = async (
-  req: Request<{}, {}, PostInputDto>,
+  req: Request<{}, {}, PostAttributes>,
   res: Response,
 ) => {
   try {
     const { body } = req;
-    const blog = await blogsRepository.findById(body.blogId);
-    if (!blog) {
-      return res
-        .status(HttpStatus.BadRequest)
-        .send({ field: 'blogId', message: 'Blog not found' });
-    }
-    const newPost = {
-      blogName: blog.name,
-      createdAt: new Date(),
-      ...body,
-    };
-    const newCreatedPost = await postsRepository.create(newPost);
-    if (!newCreatedPost) {
-      return res.sendStatus(HttpStatus.BadRequest);
-    }
-    res.status(HttpStatus.Created).send(mapToPostViewModel(newCreatedPost));
-  } catch {
-    res.sendStatus(HttpStatus.InternalServerError);
+    const postId = await postsService.create(body);
+    const post = await postsService.findByIdOrFail(postId);
+    res.status(HttpStatus.Created).send(mapToPostViewModel(post));
+  } catch (e) {
+    errorsHandler(e, res);
   }
 };

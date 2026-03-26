@@ -1,4 +1,4 @@
-import { PostsList } from '../posts/types/posts';
+import { PostsList } from '../posts/domain/post';
 
 export const db = {
   posts: <PostsList>[],

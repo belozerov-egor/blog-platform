@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
-import { blogsRepository } from '../../repositories/blogs.repository';
 import { HttpStatus } from '../../../core/types/http-statuses';
+import { blogsService } from '../../application/blogs.service';
+import { errorsHandler } from '../../../core/errors/errors.handler';
 
 export const updateBlogHandler = async (
   req: Request<{ id: string }>,
@@ -8,14 +9,9 @@ export const updateBlogHandler = async (
 ) => {
   try {
     const { id } = req.params;
-    const blog = await blogsRepository.findById(id);
-    if (!blog) {
-      res.sendStatus(HttpStatus.NotFound);
-      return;
-    }
-    await blogsRepository.update(id, req.body);
+    await blogsService.update(id, req.body);
     res.sendStatus(HttpStatus.NoContent);
-  } catch {
-    res.sendStatus(HttpStatus.InternalServerError);
+  } catch (e) {
+    errorsHandler(e, res);
   }
 };
