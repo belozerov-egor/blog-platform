@@ -2,8 +2,8 @@ import { Router } from 'express';
 import {
   createBlogHandler,
   deleteBlogHandler,
+  getBlogListHandler,
   getBlogsHandler,
-  getBlogsListHandler,
   updateBlogHandler,
 } from './handlers';
 import {
@@ -12,11 +12,22 @@ import {
 } from '../../core/middlewares/validation';
 import { blogsInputDtoValidation } from '../validation/blogs.input-dto.validation-middlewares';
 import { superAdminGuardMiddleware } from '../../core/middlewares/super-admin.guard-middleware';
+import { blogsQueryValidation } from '../validation/blogs-query.validation';
+import { createPostForBlogHandler } from './handlers/create-post-for-blog-handler';
+import { postForBlogInputDtoValidation } from '../../posts/validation/post.input-dto.validation-middlewares';
+import { paginationAndSortingValidation } from '../../core/middlewares/validation/query-pagination-sorting.validation-middleware';
+import { PostSortField } from '../../posts/routers/input/post-sort-field';
+import { getPostListForBlogHandler } from './handlers/get-post-list-for-blog-handler';
 
 export const blogsRouter = Router({});
 
 blogsRouter
-  .get('', getBlogsListHandler)
+  .get(
+    '',
+    blogsQueryValidation,
+    inputValidationResultMiddleware,
+    getBlogListHandler,
+  )
   .get('/:id', idValidation, inputValidationResultMiddleware, getBlogsHandler)
   .delete(
     '/:id',
@@ -39,4 +50,19 @@ blogsRouter
     blogsInputDtoValidation,
     inputValidationResultMiddleware,
     updateBlogHandler,
+  )
+  .get(
+    '/:id/posts',
+    idValidation,
+    paginationAndSortingValidation(PostSortField),
+    inputValidationResultMiddleware,
+    getPostListForBlogHandler,
+  )
+  .post(
+    '/:id/posts',
+    superAdminGuardMiddleware,
+    idValidation,
+    postForBlogInputDtoValidation,
+    inputValidationResultMiddleware,
+    createPostForBlogHandler,
   );

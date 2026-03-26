@@ -1,23 +1,61 @@
-import { Post } from '../types/posts';
-import { PostInputDto } from '../dto/post.input-dto';
 import { blogsRepository } from '../../blogs/repositories/blogs.repository';
 import { ObjectId, WithId } from 'mongodb';
 import { postsCollection } from '../../db/mongo.db';
+import { Post } from '../domain/post';
+import { PostAttributes } from '../application/dtos/post-attributes';
+import { RepositoryNotFoundError } from '../../core/errors/repository-not-found.error';
+import { PaginationAndSorting } from '../../core/types/pagination-and-sorting';
+import { PostSortField } from '../routers/input/post-sort-field';
 
 export const postsRepository = {
-  async findAll(): Promise<WithId<Post>[]> {
-    return postsCollection.find().toArray();
+  async findMany(
+    queryDto: PaginationAndSorting<PostSortField>,
+  ): Promise<{ items: WithId<Post>[]; totalCount: number }> {
+    const { pageNumber, pageSize, sortBy, sortDirection } = queryDto;
+    const filter: any = {};
+    const skip = (pageNumber - 1) * pageSize;
+
+    const items = await postsCollection
+      .find(filter)
+      .sort({ [sortBy]: sortDirection })
+      .skip(skip)
+      .limit(pageSize)
+      .toArray();
+
+    const totalCount = await postsCollection.countDocuments(filter);
+    return { items, totalCount };
   },
 
-  async findById(id: string): Promise<WithId<Post> | null> {
-    return postsCollection.findOne({ _id: new ObjectId(id) });
+  async findForBlog(
+    id: string,
+    queryDto: PaginationAndSorting<PostSortField>,
+  ): Promise<{ items: WithId<Post>[]; totalCount: number }> {
+    const { pageNumber, pageSize, sortBy, sortDirection } = queryDto;
+    const filter = { blogId: id };
+    const skip = (pageNumber - 1) * pageSize;
+
+    const items = await postsCollection
+      .find(filter)
+      .sort({ [sortBy]: sortDirection })
+      .skip(skip)
+      .limit(pageSize)
+      .toArray();
+
+    const totalCount = await postsCollection.countDocuments(filter);
+    return { items, totalCount };
   },
 
-  async create(newPost: Post): Promise<WithId<Post> | null> {
+  async findByIdOrFail(id: string): Promise<WithId<Post>> {
+    const post = await postsCollection.findOne({ _id: new ObjectId(id) });
+    if (!post) {
+      throw new RepositoryNotFoundError('Post not exist');
+    }
+    return post;
+  },
+
+  async create(newPost: Post): Promise<string> {
     const insertPost = await postsCollection.insertOne(newPost);
-    return await postsCollection.findOne({
-      _id: insertPost.insertedId,
-    });
+    return insertPost.insertedId.toString();
   },
 
   async delete(id: string): Promise<void> {
@@ -25,21 +63,21 @@ export const postsRepository = {
       _id: new ObjectId(id),
     });
     if (deletedPost.deletedCount < 1) {
-      throw new Error('Post not deleted');
+      throw new RepositoryNotFoundError('Post not exist');
     }
     return;
   },
 
-  async update(id: string, dto: PostInputDto): Promise<void> {
+  async update(id: string, dto: PostAttributes): Promise<void> {
     const post = await postsCollection.findOne({ _id: new ObjectId(id) });
     const blog = await blogsRepository.findById(dto.blogId);
 
     if (!blog) {
-      throw new Error('Blog not exist');
+      throw new RepositoryNotFoundError('Blog not exist');
     }
 
     if (!post) {
-      throw new Error('Post not exist');
+      throw new RepositoryNotFoundError('Post not exist');
     }
     await postsCollection.updateOne(
       {

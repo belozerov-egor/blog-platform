@@ -12,11 +12,18 @@ import {
   inputValidationResultMiddleware,
 } from '../../core/middlewares/validation';
 import { postInputDtoValidation } from '../validation/post.input-dto.validation-middlewares';
+import { paginationAndSortingValidation } from '../../core/middlewares/validation/query-pagination-sorting.validation-middleware';
+import { PostSortField } from './input/post-sort-field';
 
 export const postsRouter = Router({});
 
 postsRouter
-  .get('', getPostsListHandler)
+  .get(
+    '',
+    paginationAndSortingValidation(PostSortField),
+    inputValidationResultMiddleware,
+    getPostsListHandler,
+  )
   .get('/:id', idValidation, inputValidationResultMiddleware, getPostsHandler)
   .delete(
     '/:id',

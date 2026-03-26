@@ -1,5 +1,5 @@
 import { WithId } from 'mongodb';
-import { Blog, BlogViewModel } from '../../types/blogs';
+import { Blog, BlogViewModel } from '../../domain/blog';
 
 export const mapToBlogViewModel = (blog: WithId<Blog>): BlogViewModel => {
   return {
