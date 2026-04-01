@@ -10,3 +10,14 @@ export const idValidation = param('id')
   .withMessage('ID must not be empty')
   .isMongoId()
   .withMessage('Incorrect format of ObjectId'); // Проверка на формат ObjectId// Проверка, что строка не пустая после trim
+
+export const postIdValidation = param('postId')
+  .exists()
+  .withMessage('PostId is required')
+  .isString()
+  .withMessage('PostId must be a string')
+  .trim()
+  .notEmpty()
+  .withMessage('ID must not be empty')
+  .isMongoId()
+  .withMessage('Incorrect format of ObjectId');
