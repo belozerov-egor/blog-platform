@@ -11,7 +11,6 @@ export const updateCommentHandler = async (
     const { userId } = req.user!;
     const { id } = req.params;
     const { content } = req.body;
-    console.log(id);
     await commentsService.updateComment(id, content, userId);
     res.sendStatus(HttpStatus.NoContent);
   } catch (error) {

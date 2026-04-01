@@ -54,7 +54,6 @@ export const commentsService = {
     userId: string,
   ): Promise<void> {
     const comment = await commentsQueryRepository.findByIdOrFail(id);
-    console.log(comment);
     if (comment.commentatorInfo.userId !== userId) {
       throw new ForbiddenError(
         'If try update the comment that is not your own',
