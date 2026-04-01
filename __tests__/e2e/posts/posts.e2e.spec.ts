@@ -4,7 +4,11 @@ import { setupApp } from '../../../src/setup-app';
 import { HttpStatus } from '../../../src/core/types/http-statuses';
 import { client, runDB } from '../../../src/db/mongo.db';
 import { SETTINGS } from '../../../src/core/settings/settings';
-import { TESTING_PATH } from '../../../src/core/paths/paths';
+import {
+  AUTH_PATH,
+  TESTING_PATH,
+  USERS_PATH,
+} from '../../../src/core/paths/paths';
 import { PostAttributes } from '../../../src/posts/application/dtos/post-attributes';
 
 describe('Posts API (e2e)', () => {
@@ -299,6 +303,262 @@ describe('Posts API (e2e)', () => {
       for (let i = 0; i < dates.length - 1; i++) {
         expect(dates[i]).toBeLessThanOrEqual(dates[i + 1]);
       }
+    });
+  });
+
+  describe('POST /posts/:postId/comments', () => {
+    const userOne = {
+      login: 'userOne',
+      email: 'userone@example.com',
+      password: 'password123',
+    };
+
+    let tokenOne: string;
+    let postId: string;
+
+    const validContent = 'This is a valid comment content text';
+
+    beforeAll(async () => {
+      await request(app)
+        .delete(`${TESTING_PATH}/all-data`)
+        .expect(HttpStatus.NoContent);
+
+      const blogRes = await request(app)
+        .post('/blogs')
+        .set(correctAuthHeader)
+        .send({
+          name: 'Comments blog',
+          description: 'desc',
+          websiteUrl: 'https://example.com',
+        })
+        .expect(HttpStatus.Created);
+
+      const postRes = await request(app)
+        .post('/posts')
+        .set(correctAuthHeader)
+        .send({
+          title: 'Post for comments',
+          shortDescription: 'desc',
+          content: 'content',
+          blogId: blogRes.body.id,
+        })
+        .expect(HttpStatus.Created);
+
+      postId = postRes.body.id;
+
+      await request(app)
+        .post(USERS_PATH)
+        .set(correctAuthHeader)
+        .send(userOne)
+        .expect(HttpStatus.Created);
+
+      const loginOne = await request(app)
+        .post(`${AUTH_PATH}/login`)
+        .send({ loginOrEmail: userOne.login, password: userOne.password })
+        .expect(HttpStatus.Ok);
+      tokenOne = loginOne.body.accessToken;
+    });
+
+    it('✅ should create comment with valid JWT', async () => {
+      const res = await request(app)
+        .post(`/posts/${postId}/comments`)
+        .set('Authorization', `Bearer ${tokenOne}`)
+        .send({ content: validContent })
+        .expect(HttpStatus.Created);
+
+      expect(res.body).toEqual({
+        id: expect.any(String),
+        content: validContent,
+        commentatorInfo: {
+          userId: expect.any(String),
+          userLogin: userOne.login,
+        },
+        createdAt: expect.any(String),
+      });
+    });
+
+    it('❌ should return 401 without JWT', async () => {
+      await request(app)
+        .post(`/posts/${postId}/comments`)
+        .send({ content: validContent })
+        .expect(HttpStatus.Unauthorized);
+    });
+
+    it('❌ should return 401 with invalid JWT', async () => {
+      await request(app)
+        .post(`/posts/${postId}/comments`)
+        .set('Authorization', 'Bearer invalid.token.here')
+        .send({ content: validContent })
+        .expect(HttpStatus.Unauthorized);
+    });
+
+    it('❌ should return 404 for non-existing post', async () => {
+      await request(app)
+        .post(`/posts/000000000000000000000000/comments`)
+        .set('Authorization', `Bearer ${tokenOne}`)
+        .send({ content: validContent })
+        .expect(HttpStatus.NotFound);
+    });
+
+    describe('body validation', () => {
+      it('❌ should return 400 when content is missing', async () => {
+        const res = await request(app)
+          .post(`/posts/${postId}/comments`)
+          .set('Authorization', `Bearer ${tokenOne}`)
+          .send({})
+          .expect(HttpStatus.BadRequest);
+
+        expect(res.body).toEqual({
+          errorsMessages: expect.arrayContaining([
+            expect.objectContaining({ field: 'content' }),
+          ]),
+        });
+      });
+
+      it('❌ should return 400 when content is too short (< 20 chars)', async () => {
+        const res = await request(app)
+          .post(`/posts/${postId}/comments`)
+          .set('Authorization', `Bearer ${tokenOne}`)
+          .send({ content: 'Too short' })
+          .expect(HttpStatus.BadRequest);
+
+        expect(res.body).toEqual({
+          errorsMessages: expect.arrayContaining([
+            expect.objectContaining({ field: 'content' }),
+          ]),
+        });
+      });
+
+      it('❌ should return 400 when content is too long (> 300 chars)', async () => {
+        const res = await request(app)
+          .post(`/posts/${postId}/comments`)
+          .set('Authorization', `Bearer ${tokenOne}`)
+          .send({ content: 'a'.repeat(301) })
+          .expect(HttpStatus.BadRequest);
+
+        expect(res.body).toEqual({
+          errorsMessages: expect.arrayContaining([
+            expect.objectContaining({ field: 'content' }),
+          ]),
+        });
+      });
+    });
+  });
+
+  describe('GET /posts/:postId/comments', () => {
+    const userOne = {
+      login: 'commenter',
+      email: 'commenter@example.com',
+      password: 'password123',
+    };
+
+    let tokenOne: string;
+    let postId: string;
+
+    beforeAll(async () => {
+      await request(app)
+        .delete(`${TESTING_PATH}/all-data`)
+        .expect(HttpStatus.NoContent);
+
+      const blogRes = await request(app)
+        .post('/blogs')
+        .set(correctAuthHeader)
+        .send({
+          name: 'Comments blog',
+          description: 'desc',
+          websiteUrl: 'https://example.com',
+        })
+        .expect(HttpStatus.Created);
+
+      const postRes = await request(app)
+        .post('/posts')
+        .set(correctAuthHeader)
+        .send({
+          title: 'Post with many comments',
+          shortDescription: 'desc',
+          content: 'content',
+          blogId: blogRes.body.id,
+        })
+        .expect(HttpStatus.Created);
+
+      postId = postRes.body.id;
+
+      await request(app)
+        .post(USERS_PATH)
+        .set(correctAuthHeader)
+        .send(userOne)
+        .expect(HttpStatus.Created);
+
+      const loginRes = await request(app)
+        .post(`${AUTH_PATH}/login`)
+        .send({ loginOrEmail: userOne.login, password: userOne.password })
+        .expect(HttpStatus.Ok);
+      tokenOne = loginRes.body.accessToken;
+
+      for (let i = 1; i <= 5; i++) {
+        await request(app)
+          .post(`/posts/${postId}/comments`)
+          .set('Authorization', `Bearer ${tokenOne}`)
+          .send({ content: `Comment number ${i} with enough content length` })
+          .expect(HttpStatus.Created);
+      }
+    });
+
+    it('✅ should return comments list for a post', async () => {
+      const res = await request(app)
+        .get(`/posts/${postId}/comments`)
+        .expect(HttpStatus.Ok);
+
+      expect(res.body).toEqual({
+        pagesCount: expect.any(Number),
+        page: expect.any(Number),
+        pageSize: expect.any(Number),
+        totalCount: expect.any(Number),
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            id: expect.any(String),
+            content: expect.any(String),
+            commentatorInfo: expect.objectContaining({
+              userId: expect.any(String),
+              userLogin: expect.any(String),
+            }),
+            createdAt: expect.any(String),
+          }),
+        ]),
+      });
+    });
+
+    it('✅ should support pagination', async () => {
+      const res = await request(app)
+        .get(`/posts/${postId}/comments?pageSize=2&pageNumber=1`)
+        .expect(HttpStatus.Ok);
+
+      expect(res.body.items).toHaveLength(2);
+      expect(res.body.pageSize).toBe(2);
+      expect(res.body.page).toBe(1);
+    });
+
+    it('✅ should return second page', async () => {
+      const res = await request(app)
+        .get(`/posts/${postId}/comments?pageSize=2&pageNumber=2`)
+        .expect(HttpStatus.Ok);
+
+      expect(res.body.page).toBe(2);
+      expect(res.body.items).toHaveLength(2);
+    });
+
+    it('✅ should return last page with remaining items', async () => {
+      const res = await request(app)
+        .get(`/posts/${postId}/comments?pageSize=2&pageNumber=3`)
+        .expect(HttpStatus.Ok);
+
+      expect(res.body.items).toHaveLength(1);
+    });
+
+    it('❌ should return 404 for non-existing post', async () => {
+      await request(app)
+        .get(`/posts/000000000000000000000000/comments`)
+        .expect(HttpStatus.NotFound);
     });
   });
 });
