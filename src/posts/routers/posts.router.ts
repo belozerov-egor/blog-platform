@@ -18,6 +18,8 @@ import { PostSortField } from './input/post-sort-field';
 import { commentInputDtoValidationMiddlewares } from '../../comments/validation/comment.input.dto.validation-middlewares';
 import { jwtAuthGuardMiddleware } from '../../core/middlewares/jwt-auth.guard-middleware';
 import { createCommentHandler } from '../../comments/routers/handlers/create-comment-handler';
+import { getPostCommentsHandler } from './handlers/get-post-comments-handler';
+import { CommentsSortField } from '../../comments/routers/input/comments-sort-field';
 
 export const postsRouter = Router({});
 
@@ -54,8 +56,9 @@ postsRouter
   .get(
     '/:postId/comments',
     postIdValidation,
+    paginationAndSortingValidation(CommentsSortField),
     inputValidationResultMiddleware,
-    getPostsHandler,
+    getPostCommentsHandler,
   )
   .post(
     '/:postId/comments',

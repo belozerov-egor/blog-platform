@@ -10,6 +10,6 @@ export type Commentator = {
   userLogin: string;
 };
 
-export type CommentViewModel = Omit<Comment, 'postId'> & {
+export type CommentViewModel = Omit<TComment, 'postId'> & {
   id: string;
 };
